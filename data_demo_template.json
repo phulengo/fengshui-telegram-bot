@@ -1,0 +1,28 @@
+{
+      "2025-09-17": {
+        "date": "Thứ tư, Ngày 17 Tháng 9 Năm 2025", "lunar-date": "Ngày 26 Tháng 7 Năm 2025"},
+        "detail-lunar-date":"Ngày Kỷ Sửu, tháng Giáp Thân, năm ất Tỵ",
+        "good-time": [
+          "Bính Dần (3h-5h)", "Đinh Mão (5h-7h)", "Kỷ Tỵ (9h-11h)", "Nhâm Thân (15h-17h)", "Giáp TuẤt (19h-21h)", "Ất Hợi (21h-23h)"
+        ],
+        "year-element": "Hoả - Phú Đăng Hoả",
+        "season-element": {
+            "Mùa Thu": {
+              "Tiết khí": "Thu phân (giữa thu)",
+              "Vượng": "Kim",
+              "Khắc": "Hoả Trọng"
+            }
+        },
+        "date-element": "Hoả - Bích Lôi Hoả",
+        "bad-for-age":["Đinh Mùi, Ất Mùi"],
+        "star": "Chẩn",
+        "animal": "Giun",
+        "division": {"Khai":"Tốt mọi việc, trừ động thổ, an táng"},
+        "auspicious-star": ["Mẫu Thương", "Minh Đường"],
+        "inauspicious-star": ["Thụ Tử", "Ngũ Quỷ", "Sát Chủ", "Ly Sào"],
+        "depart":{
+            "Hỷ thần": "Đông Bắc",
+            "Tài thần": "Nam"
+        }
+    
+}
