@@ -67,11 +67,11 @@ async def today(update, context):
         f"✅ Sao cát:\n{', '.join(clean_all(star.get('name', str(star))) for star in data.get('auspicious-star', []))}",
         f"❌ Sao hung:\n{', '.join(clean_all(star.get('name', str(star))) for star in data.get('inauspicious-star', []))}",
         "──────────────────────",
-        f"🐾 Con vật:\n{clean_all(data.get('animal'))}",
-        f"🔸 Trực:\n{clean_all(list(data.get('division', {}).keys())[0])}- {clean_all(list(data.get('division', {}).values())[0])}",
-        f"💰 Hỷ thần:\n{clean_all(data.get('depart', {}).get('Hỷ thần'))}",
-        f"💰 Tài thần:\n{clean_all(data.get('depart', {}).get('Tài thần'))}",
-        f"🚫 Tuổi kỵ:\n{', '.join(clean_all(age) for age in data.get('bad-for-age', []))}"
+        f"🐾 Con vật:\n{clean_all(data['animal'])}",
+        f"🔸 Trực:\n{clean_all(list(data['division'].keys())[0])} - {clean_all(list(data['division'].values())[0])}",
+        f"💰 Hỷ thần:\n{clean_all(data['depart']['Hỷ thần'])}",
+        f"💰 Tài thần:\n{clean_all(data['depart']['Tài thần'])}",
+        f"🚫 Tuổi kỵ:\n{', '.join(clean_all(age) for age in data['bad-for-age'])}"
     ]
     await update.message.reply_text("\n\n".join(msg_lines))
 
