@@ -57,7 +57,7 @@ async def today(update, context):
         f"🔸 Trực:\n{clean_all(list(data['division'].keys())[0])} - {clean_all(list(data['division'].values())[0])}",
         f"💰 Hỷ thần:\n{clean_all(data['depart']['Hỷ thần'])}",
         f"💰 Tài thần:\n{clean_all(data['depart']['Tài thần'])}",
-        f"🚫 Tuổi kỵ:\n{', '.join(clean_all(age) for age in data['bad-for-age']))}"
+        f"🚫 Tuổi kỵ:\n{', '.join(clean_all(age) for age in data['bad-for-age'])}"
     ]
     msg = "\n\n".join(msg_lines)
     await update.message.reply_text(msg)
