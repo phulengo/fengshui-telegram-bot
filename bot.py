@@ -10,6 +10,10 @@ import re
 
 app = Flask(__name__)
 
+BOT_VERSION = "1.0"
+BOT_AUTHOR = "@phulengo"
+BOT_COPYRIGHT = f"© 2025 Fengshui Warning Bot • v{BOT_VERSION} • by {BOT_AUTHOR}"
+
 
 @app.route("/health")
 def health():
@@ -18,7 +22,7 @@ def health():
 
 def start_health_server():
     port = int(os.environ.get("PORT", "8443"))
-    app.run(host="0.0.0.0", port=port, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, use_reloader=False, debug=False)
 
 
 load_dotenv()
@@ -70,20 +74,62 @@ def safe_bold(text):
 
 
 def pretty_star_list(star_list):
+    # Configurable: edit these sets to add/remove exceptions any time!
+    exception_good = {
+        "Thiên tài",
+        "Địa tài",
+        "Trực tinh",
+        "Nguyệt đức hợp",
+        "Sinh khí",
+        "Mẫu thương",
+        "Thiên mã",
+        "Ngũ phú",
+        "Phúc hậu",
+        "Lộc khố",
+        "Thiên phú",
+        "Nguyệt tài",
+    }  # Use 🧧
+    exception_bad = {
+        "Địa tặc",
+        "Sát chủ",
+        "Ngũ quỷ",
+        "Đại hao (Tử khí,Quan phù)",
+        "Quỷ khốc",
+        "Vãng vong (Thổ kỵ)",
+        "Thụ tử",
+        "Trùng tang",
+        "Tiểu hao",
+        "Thiên cương (Diệt môn",
+        "Cửu không",
+        "Cửu Thổ Quỷ",
+    }  # Use 🚨
+
+    dot_map = {"🔴": "🍀", "⚫️": "⚠️"}
+    exception_map = {"🔴": "🧧", "⚫️": "🚨"}
+
     out = []
     for item in star_list:
         for name, detail in item.items():
-            parts = []
+            # Remove original dot for lookup
+            base_name = name.replace("🔴", "").replace("⚫️", "").strip()
+            m = re.search(r"(🔴|⚫️)", name)
+            icon = ""
+            if m:
+                orig_dot = m.group(1)
+                if orig_dot == "🔴" and base_name in exception_good:
+                    icon = exception_map[orig_dot]
+                elif orig_dot == "⚫️" and base_name in exception_bad:
+                    icon = exception_map[orig_dot]
+                else:
+                    icon = dot_map[orig_dot]
+                item_name = f"{icon} {base_name}"
+            else:
+                item_name = name
+            out.append(esc(item_name))
             for k, v in detail.items():
                 if v:
-                    parts.append(f"{escape_markdown_v2(k)} {escape_markdown_v2(v)}")
-            whole = " \\| ".join(parts)
-            # Escape dash at start
-            line = f"- {escape_markdown_v2(name)}: {whole}"
-            # Check and escape leading dash for MarkdownV2
-            if line.lstrip().startswith("-"):
-                line = "\\-" + line.lstrip()[1:]
-            out.append(line)
+                    out.append(f"└ {esc(v)}")
+            out.append("└")
     return "\n".join(out)
 
 
@@ -100,10 +146,65 @@ def escape_leading_dash_per_line(text):
     return "\n".join(safe_lines)
 
 
+def format_time_fancy(times):
+    seen = set()
+    sections = []
+    for t in times:
+        t_str = str(t)
+        m = re.match(r"([^\(]+)\(([^\)]+)\)\s*-\s*(.*?)\s*-\s*(🔴|⚫️)$", t_str)
+        if m:
+            name = m.group(1).strip()
+            timerange = m.group(2).strip()
+            desc = m.group(3).strip()
+            icon = m.group(4)
+            section = f"{icon} {name}\n" f"    └ {desc}\n" f"    └ ({timerange})"
+        else:
+            section = t_str
+        if section not in seen:
+            seen.add(section)
+            sections.append(section)
+    return "\n".join(sections)
+
+
 async def start(update, context):
     await update.message.reply_text(
         "Hello! I'm your Feng Shui Bot. Use /today to get today's Feng Shui info."
     )
+
+
+def move_dot_first(element):
+    # For a value like "Hoả 🔴 - Phú Đăng Hoả" or "Kim ⚫ - Kim loại"
+    import re
+
+    # Find any colored dot (red, black, etc)
+    m = re.search(r"(🔴|⚫️|🔵|🟢|🟡|🟤|⚪)", element)
+    if m:
+        dot = m.group(1)
+        element = element.replace(dot, "").strip()
+        return f"{dot} {element}"
+    return element
+
+
+def esc(x):
+    return escape_markdown_v2(x)
+
+
+def format_season_element(season_element):
+    icon_map = {"Mùa Xuân": "🌱", "Mùa Hạ": "🌞", "Mùa Thu": "🍂", "Mùa Đông": "❄️"}
+    out = []
+    for season, val in season_element.items():
+        icon = icon_map.get(season, "")
+        season_with_icon = f"{season} {icon}".strip()
+        out.append(esc(season_with_icon))
+        if "Tiết khí" in val:
+            tiet_khi_raw = val["Tiết khí"]
+            tiet_khi_clean = tiet_khi_raw.split(":", 1)[-1].strip().replace("_", ", ")
+            out.append(esc("└ Tiết khí: " + tiet_khi_clean))
+        if "Vượng" in val:
+            out.append(esc("└ Vượng: " + val["Vượng"]))
+        if "Khắc" in val:
+            out.append(esc("└ Khắc: " + val["Khắc"]))
+    return "\n".join(out)
 
 
 async def today(update, context):
@@ -116,53 +217,55 @@ async def today(update, context):
     def esc(x):
         return escape_markdown_v2(x)
 
+    divider_line = esc("─────────────────")
+
     msg_lines = [
-        safe_bold(
-            esc(
-                "📅 "
-                + clean_all(data.get("date"))
-                + " ("
-                + clean_all(data.get("lunar-date"))
-                + ")"
-            )
-        ),
-        esc("──────────────────────"),
-        safe_bold(esc("🕑 Giờ tốt:")),
-        esc(data.get("good-time", [])),
-        safe_bold(esc("🕑 Giờ xấu:")),
-        esc(data.get("bad-time", [])),
-        esc("──────────────────────"),
-        safe_bold(esc("🔹 Chi tiết:")),
-        esc(data.get("detail-lunar-date")),
-        safe_bold(esc("🔹 Ngũ hành năm:")),
-        esc(data.get("year-element")),
-        safe_bold(esc("🔹 Ngũ hành ngày:")),
-        esc(data.get("date-element")),
-        safe_bold(esc("🔹 Ngũ hành mùa:")),
-        esc(data.get("season-element")),
-        esc("──────────────────────"),
-        safe_bold(esc("🌟 Sao:")),
+        safe_bold(esc("📅 " + clean_all(data.get("date")).upper())),
+        safe_bold(esc("🌙  ÂM LỊCH:")),
+        esc(clean_all(data.get("lunar-date")))
+        + "\n"
+        + esc("└ " + clean_all(data.get("detail-lunar-date"))),
+        divider_line,
+        safe_bold(esc("🕑 GIỜ TỐT:")),
+        esc(format_time_fancy(data.get("good-time", []))),
+        safe_bold(esc("🕑 GIỜ XẤU:")),
+        esc(format_time_fancy(data.get("bad-time", []))),
+        divider_line,
+        safe_bold(esc("☯️ NGŨ HÀNH:")),
+        safe_bold(esc("⏳ Năm:")),
+        esc(move_dot_first(clean_all(data.get("year-element")))),
+        safe_bold(esc("⏳ Ngày:")),
+        esc(move_dot_first(clean_all(data.get("date-element")))),
+        safe_bold(esc("⏳ Mùa")),
+        format_season_element(data.get("season-element")),
+        divider_line,
+        safe_bold(esc("🌟 SAO:")),
         esc(data.get("star")),
-        safe_bold(esc("✅ Sao cát:")),
-        pretty_star_list(data.get("auspicious-star", [])),
-        safe_bold(esc("❌ Sao hung:")),
-        pretty_star_list(data.get("inauspicious-star", [])),
-        esc("──────────────────────"),
-        safe_bold(esc("🐾 Con vật:")),
-        esc(data["animal"]),
-        safe_bold(esc("🔸 Trực:")),
-        esc(
-            clean_all(list(data["division"].keys())[0])
-            + " \\- "
-            + clean_all(list(data["division"].values())[0])
-        ),
-        safe_bold(esc("💰 Hỷ thần:")),
-        esc(data["depart"]["Hỷ thần"]),
-        safe_bold(esc("💰 Tài thần:")),
-        esc(data["depart"]["Tài thần"]),
         safe_bold(esc("🚫 Tuổi kỵ:")),
         ", ".join(esc(age) for age in data["bad-for-age"]),
+        divider_line,
+        safe_bold(esc("🔴 CÁT TINH:")),
+        pretty_star_list(data.get("auspicious-star", [])),
+        safe_bold(esc("⚫️ HUNG TINH:")),
+        pretty_star_list(data.get("inauspicious-star", [])),
+        divider_line,
+        safe_bold(esc("🐾 ĐỘNG VẬT:")),
+        esc(data["animal"]),
+        safe_bold(esc("🧿 TRỰC:")),
+        esc(
+            clean_all(list(data["division"].keys())[0])
+            + "\n└ "
+            + clean_all(list(data["division"].values())[0])
+        ),
+        divider_line,
+        safe_bold(esc("🧭 XUẤT HÀNH:")),
+        safe_bold(esc("🧧 Hỷ thần:")) + " Hướng " + esc(data["depart"]["Hỷ thần"]),
+        safe_bold(esc("💰 Tài thần:")) + " Hướng " + esc(data["depart"]["Tài thần"]),
     ]
+    # footer & copyright
+    msg_lines.append(divider_line)
+    msg_lines.append(esc(BOT_COPYRIGHT))
+
     msg_full = "\n\n".join(msg_lines)
     msg_full = escape_leading_dash_per_line(msg_full)
     print(msg_full)  # Debug: print what will be sent to Telegram
