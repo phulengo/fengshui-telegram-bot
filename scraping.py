@@ -299,27 +299,30 @@ def get_day_data(date_str, date_str2, date_str3):
     )  # e.g. "Hoả - Phú Đăng Hoả"
 
     ss = get_list_or_empty(soup, "#m614")[7]
-    tr_ss = soup3.find("tr", {"data-row-key": "Mùa: Mùa thu"})
+    # Dynamically find any season row (Mùa xuân/hạ/thu/đông)
+    tr_ss = None
+    for tr in soup3.find_all("tr"):
+        row_key = tr.get("data-row-key", "")
+        if row_key.startswith("Mùa:"):
+            tr_ss = tr
+            break
+    vuong = None
+    khac = None
     if tr_ss:
-        # Get the text inside the second <td>
         tds = tr_ss.find_all("td")
         if len(tds) > 1:
             content = tds[1].get_text(separator="\n")
-            # Extract "Kim" after "Vượng:"
             vuong_match = re.search(r"Vượng:\s*([^\n]+)", content)
             vuong = vuong_match.group(1).strip() if vuong_match else None
-            # Extract "Hoả Trọng" after "Khắc:"
             khac_match = re.search(r"Khắc:\s*([^\n]+)", content)
             khac = khac_match.group(1).strip() if khac_match else None
-        season_element = {
-            ss: {
-                "Tiết khí": get_list_or_empty(soup, "#m614")[16],
-                "Vượng": vuong,
-                "Khắc": khac,
-            }
+    season_element = {
+        ss: {
+            "Tiết khí": get_list_or_empty(soup, "#m614")[16],
+            "Vượng": vuong,
+            "Khắc": khac,
         }
-    else:
-        season_element = {ss: {"Tiết khí": "", "Vượng": "", "Khắc": ""}}
+    }
 
     tr_de = soup3.select_one(
         'tr.rc-table-row.rc-table-row-level-0[data-row-key="Ngày"]'
@@ -403,25 +406,69 @@ def get_day_data(date_str, date_str2, date_str3):
 
 
 def main():
-    start_date = datetime(2025, 9, 1)
-    end_date = datetime(2026, 1, 1)
+    import argparse
+    import time
+    import os
+
+    parser = argparse.ArgumentParser(description="Scrape Vietnamese lunar calendar data")
+    parser.add_argument("--start", type=str, help="Start date (YYYY-MM-DD)", default="2025-09-01")
+    parser.add_argument("--end", type=str, help="End date (YYYY-MM-DD)", default="2026-01-01")
+    parser.add_argument("--output", type=str, help="Output JSON file", default="lich_van_nien_thoigian_2025.json")
+    parser.add_argument("--merge", action="store_true", help="Merge with existing data instead of overwrite")
+    parser.add_argument("--delay", type=float, help="Delay between requests (seconds)", default=0.5)
+    args = parser.parse_args()
+
+    start_date = datetime.strptime(args.start, "%Y-%m-%d")
+    end_date = datetime.strptime(args.end, "%Y-%m-%d")
     delta = timedelta(days=1)
 
+    # Load existing data if merging
     data = {}
+    if args.merge and os.path.exists(args.output):
+        with open(args.output, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        print(f"Loaded {len(data)} existing entries from {args.output}")
 
     current_date = start_date
+    scraped_count = 0
+    failed_dates = []
+
     while current_date <= end_date:
         date_str = current_date.strftime("%Y%m%d")
         date_str2 = current_date.strftime("%d-%m-%Y")
         date_str3 = current_date.strftime("%Y%m%d")
         key = current_date.strftime("%Y-%m-%d")
-        day_data = get_day_data(date_str, date_str2, date_str3)
-        if day_data:
-            data[key] = day_data
-        current_date += delta
 
-    with open("lich_van_nien_thoigian_2025.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        # Skip if already exists in merge mode
+        if args.merge and key in data:
+            print(f"Skipping {key} (already exists)")
+            current_date += delta
+            continue
+
+        try:
+            day_data = get_day_data(date_str, date_str2, date_str3)
+            if day_data:
+                data[key] = day_data
+                scraped_count += 1
+                print(f"Scraped {key} ({scraped_count})")
+            else:
+                failed_dates.append(key)
+                print(f"Failed to scrape {key}")
+        except Exception as e:
+            failed_dates.append(key)
+            print(f"Error scraping {key}: {e}")
+
+        current_date += delta
+        time.sleep(args.delay)  # Rate limiting
+
+    # Sort by date and save
+    sorted_data = dict(sorted(data.items()))
+    with open(args.output, "w", encoding="utf-8") as f:
+        json.dump(sorted_data, f, ensure_ascii=False, indent=2)
+
+    print(f"\nDone! Scraped {scraped_count} new entries. Total: {len(sorted_data)} entries.")
+    if failed_dates:
+        print(f"Failed dates: {failed_dates}")
 
 
 if __name__ == "__main__":
