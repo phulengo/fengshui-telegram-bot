@@ -207,18 +207,9 @@ def format_season_element(season_element):
     return "\n".join(out)
 
 
-async def today(update, context):
-    today_str = datetime.now(pytz.timezone("Asia/Bangkok")).strftime("%Y-%m-%d")
-    data = fengshui_data.get(today_str)
-    if not data:
-        await update.message.reply_text("No data found for today.")
-        return
-
-    def esc(x):
-        return escape_markdown_v2(x)
-
+def build_today_message(data):
+    """Build the daily feng shui message from data. Returns formatted MarkdownV2 string."""
     divider_line = esc("─────────────────")
-
     msg_lines = [
         safe_bold(esc("📅 " + clean_all(data.get("date")).upper())),
         safe_bold(esc("🌙  ÂM LỊCH:")),
@@ -262,14 +253,20 @@ async def today(update, context):
         safe_bold(esc("🧧 Hỷ thần:")) + " Hướng " + esc(data["depart"]["Hỷ thần"]),
         safe_bold(esc("💰 Tài thần:")) + " Hướng " + esc(data["depart"]["Tài thần"]),
     ]
-    # footer & copyright
     msg_lines.append(divider_line)
     msg_lines.append(esc(BOT_COPYRIGHT))
-
     msg_full = "\n\n".join(msg_lines)
-    msg_full = escape_leading_dash_per_line(msg_full)
-    print(msg_full)  # Debug: print what will be sent to Telegram
+    return escape_leading_dash_per_line(msg_full)
 
+
+async def today(update, context):
+    today_str = datetime.now(pytz.timezone("Asia/Bangkok")).strftime("%Y-%m-%d")
+    data = fengshui_data.get(today_str)
+    if not data:
+        await update.message.reply_text("No data found for today.")
+        return
+    msg_full = build_today_message(data)
+    print(msg_full)  # Debug: print what will be sent to Telegram
     await update.message.reply_text(msg_full, parse_mode="MarkdownV2")
 
 
@@ -286,14 +283,34 @@ async def daily_warning(context):
         )
 
 
+async def daily_today(context):
+    """Send full daily feng shui reading at scheduled time."""
+    today_str = datetime.now(pytz.timezone("Asia/Bangkok")).strftime("%Y-%m-%d")
+    data = fengshui_data.get(today_str)
+    chat_id = context.job.data
+    if data:
+        msg_full = build_today_message(data)
+        await context.bot.send_message(
+            chat_id=chat_id, text=msg_full, parse_mode="MarkdownV2"
+        )
+
+
 def main():
     threading.Thread(target=start_health_server, daemon=True).start()
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("today", today))
+    # Daily warning at 07:00
     application.job_queue.run_daily(
         daily_warning,
         time=datetime.strptime("07:00", "%H:%M").time(),
+        data=CHAT_ID,
+        days=(0, 1, 2, 3, 4, 5, 6),
+    )
+    # Full daily reading at 09:00
+    application.job_queue.run_daily(
+        daily_today,
+        time=datetime.strptime("09:00", "%H:%M").time(),
         data=CHAT_ID,
         days=(0, 1, 2, 3, 4, 5, 6),
     )
