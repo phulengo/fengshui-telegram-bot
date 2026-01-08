@@ -300,17 +300,19 @@ def main():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("today", today))
-    # Daily warning at 07:00
+    # Timezone for scheduling
+    tz = pytz.timezone("Asia/Bangkok")
+    # Daily warning at 07:00 Asia/Bangkok
     application.job_queue.run_daily(
         daily_warning,
-        time=datetime.strptime("07:00", "%H:%M").time(),
+        time=datetime.strptime("07:00", "%H:%M").time().replace(tzinfo=tz),
         data=CHAT_ID,
         days=(0, 1, 2, 3, 4, 5, 6),
     )
-    # Full daily reading at 09:00
+    # Full daily reading at 09:00 Asia/Bangkok
     application.job_queue.run_daily(
         daily_today,
-        time=datetime.strptime("09:00", "%H:%M").time(),
+        time=datetime.strptime("09:00", "%H:%M").time().replace(tzinfo=tz),
         data=CHAT_ID,
         days=(0, 1, 2, 3, 4, 5, 6),
     )
